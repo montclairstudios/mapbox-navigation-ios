@@ -743,7 +743,7 @@ open class CarPlayNavigationViewController: UIViewController {
             distanceRemaining: routeDistance,
             timeRemaining: timeRemaining
         )
-        mapTemplate.update(routeEstimates, for: carSession.trip, with: congestionLevel.asCPTimeRemainingColor)
+        mapTemplate.update(routeEstimates, for: carSession.trip, with: .default)
 
         let stepProgress = routeProgress.currentLegProgress.currentStepProgress
         let stepDistance = localized(measurement: Measurement(distance: stepProgress.distanceRemaining))
