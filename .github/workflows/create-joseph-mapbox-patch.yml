@@ -1,0 +1,72 @@
+name: Create Joseph MapboxNavigation patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: "Mapbox upstream tag to patch"
+        required: true
+        default: "v3.25.0"
+      branch_name:
+        description: "Branch to create in this fork"
+        required: true
+        default: "joseph/v3.25.0-neutral-carplay-eta"
+      joseph_tag:
+        description: "Joseph package tag to create"
+        required: true
+        default: "3.25.0-joseph.1"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out upstream Mapbox tag
+        uses: actions/checkout@v4
+        with:
+          repository: mapbox/mapbox-navigation-ios
+          ref: ${{ inputs.upstream_tag }}
+          fetch-depth: 0
+
+      - name: Apply Joseph CarPlay ETA color patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          file = Path("Sources/MapboxNavigationUIKit/CarPlay/CarPlayNavigationViewController.swift")
+          text = file.read_text()
+
+          text = text.replace(
+              "        let congestionLevel = routeProgress.averageCongestionLevelRemainingOnLeg ?? .unknown\n\n",
+              ""
+          )
+
+          text = text.replace(
+              "mapTemplate.update(routeEstimates, for: carSession.trip, with: congestionLevel.asCPTimeRemainingColor)",
+              "mapTemplate.update(routeEstimates, for: carSession.trip, with: .default)"
+          )
+
+          if "congestionLevel.asCPTimeRemainingColor" in text:
+              raise SystemExit("Patch failed: colored CarPlay ETA update is still present.")
+
+          file.write_text(text)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "${{ inputs.branch_name }}"
+          git add Sources/MapboxNavigationUIKit/CarPlay/CarPlayNavigationViewController.swift
+          git commit -m "Use default CarPlay time remaining color"
+
+      - name: Push Joseph branch and tag to this fork
+        run: |
+          git tag "${{ inputs.joseph_tag }}"
+
+          git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:"${{ inputs.branch_name }}"
+          git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "${{ inputs.joseph_tag }}"
